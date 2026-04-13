@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Drowning Monitor · 看板</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root { --bg:#000; --card:#1c1c1e; --text:#f5f5f7; --muted:#8e8e93; --accent:#0a84ff; --danger:#ff453a; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: "Segoe UI", "Microsoft YaHei", sans-serif; background:var(--bg); color:var(--text); padding:24px; max-width:1400px; margin-left:auto; margin-right:auto; }
+    h1 { font-size:1.35rem; font-weight:600; margin:0 0 8px; letter-spacing:0.02em; }
+    p.sub { color:var(--muted); font-size:13px; margin:0 0 20px; line-height:1.5; }
+    .banner { background:#2a1a1a; border:1px solid #442; color:#faa; padding:12px 16px; border-radius:10px; margin-bottom:20px; font-size:13px; display:none; }
+    .banner.show { display:block; }
+    .stats { display:flex; flex-wrap:wrap; gap:12px; margin-bottom:20px; }
+    .stat { background:var(--card); border-radius:12px; padding:14px 18px; min-width:100px; border:1px solid rgba(255,255,255,.06); }
+    .stat b { font-size:1.4rem; display:block; font-variant-numeric:tabular-nums; }
+    .stat span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:0.04em; }
+    .chart-wrap { background:var(--card); border-radius:12px; padding:16px; margin-bottom:24px; border:1px solid rgba(255,255,255,.06); max-height: 260px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th { text-align:left; color:var(--muted); font-size:11px; text-transform:uppercase; padding:10px 8px; border-bottom:1px solid #333; }
+    td { padding:10px 8px; border-bottom:1px solid #222; vertical-align:middle; }
+    tr:hover td { background:#111; }
+    .thumb { max-width:140px; max-height:84px; border-radius:8px; object-fit:cover; background:#222; }
+    a { color:var(--accent); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .tag { display:inline-block; padding:2px 8px; border-radius:6px; font-size:10px; font-weight:600; }
+    .tag-alert { background:rgba(255,69,58,.2); color:#ff6961; }
+    .tag-clip { background:rgba(255,159,10,.15); color:#ff9f0a; }
+    .muted { color:var(--muted); font-size:12px; }
+    .err { color:var(--danger); }
+  </style>
+</head>
+<body>
+  <h1>监测看板</h1>
+  <p class="sub">只读本地日志 · 与桌面检测<strong>独立进程</strong> · 未启动本页不影响本机监测 · <a href="/docs">OpenAPI</a></p>
+  <div class="banner" id="err-banner"></div>
+
+  <div class="stats" id="stats"></div>
+  <div class="chart-wrap"><canvas id="chart"></canvas></div>
+  <div id="table-wrap"></div>
+
+  <script>
+    function esc(s) {
+      if (s == null || s === undefined) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    let chart;
+
+    async function load() {
+      const banner = document.getElementById('err-banner');
+      banner.classList.remove('show');
+      banner.textContent = '';
+
+      let st, ev, hr;
+      try {
+        const r1 = await fetch('/api/stats');
+        if (!r1.ok) throw new Error('HTTP ' + r1.status);
+        st = await r1.json();
+        const r2 = await fetch('/api/events?limit=120');
+        if (!r2.ok) throw new Error('HTTP ' + r2.status);
+        ev = await r2.json();
+        const r3 = await fetch('/api/stats/hourly?hours=24');
+        hr = r3.ok ? await r3.json() : { series: [] };
+      } catch (e) {
+        banner.textContent = '无法连接看板 API（请确认已在项目根目录执行 python -m web）。本机桌面监测不受影响。';
+        banner.classList.add('show');
+        document.getElementById('stats').innerHTML = '';
+        document.getElementById('table-wrap').innerHTML = '<p class="err">离线</p>';
+        return;
+      }
+
+      const logsDir = st.logs_dir || '';
+      document.getElementById('stats').innerHTML = `
+        <div class="stat"><b>${st.drowning_alert_events}</b><span>报警 (jsonl)</span></div>
+        <div class="stat"><b>${st.clip_saved_events}</b><span>录像记录</span></div>
+        <div class="stat"><b>${st.csv_data_rows}</b><span>CSV 行数</span></div>
+        <div class="stat" style="min-width:200px"><span>日志目录</span><b style="font-size:11px;font-weight:400;word-break:break-all;margin-top:6px;">${esc(logsDir)}</b></div>
+      `;
+
+      const series = hr.series || [];
+      const labels = series.map(x => x.bucket);
+      const data = series.map(x => x.count);
+      const chartWrap = document.querySelector('.chart-wrap');
+      try {
+        if (typeof Chart !== 'undefined') {
+          const ctx = document.getElementById('chart').getContext('2d');
+          if (chart) chart.destroy();
+          chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels,
+              datasets: [{ label: '溺水报警 (按小时)', data, backgroundColor: 'rgba(10,132,255,0.35)', borderColor: '#0a84ff', borderWidth: 1 }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { ticks: { color: '#8e8e93', maxRotation: 45 }, grid: { color: 'rgba(255,255,255,.06)' } },
+                y: { ticks: { color: '#8e8e93', stepSize: 1 }, grid: { color: 'rgba(255,255,255,.06)' }, beginAtZero: true }
+              }
+            }
+          });
+          chartWrap.style.display = '';
+        } else {
+          chartWrap.style.display = 'none';
+        }
+      } catch (e) {
+        chartWrap.style.display = 'none';
+      }
+
+      const wrap = document.getElementById('table-wrap');
+      if (ev.source === 'jsonl' && ev.items && ev.items.length) {
+        const rows = ev.items.slice().reverse().map(it => {
+          const fname = it.screenshot_path_abs ? it.screenshot_path_abs.split(/[/\\\\]/).pop() : '';
+          const img = fname
+            ? `<img class="thumb" src="/files/screenshots/${encodeURIComponent(fname)}" alt="" onerror="this.style.display='none'" />`
+            : '—';
+          let clipCell = '—';
+          if (it.kind === 'clip_saved' && it.clip_path_abs) {
+            const cf = it.clip_path_abs.split(/[/\\\\]/).pop();
+            clipCell = `<a href="/files/clips/${encodeURIComponent(cf)}">下载录像</a>`;
+          }
+          const kind = it.kind || '';
+          const tag = kind === 'drowning_alert' ? '<span class="tag tag-alert">报警</span>' :
+                      kind === 'clip_saved' ? '<span class="tag tag-clip">录像</span>' : esc(kind);
+          return `<tr>
+            <td>${esc(it.time_local || it.time_iso)}</td>
+            <td>${tag}</td>
+            <td>${esc(it.event_type || '')}</td>
+            <td>${it.drowning_count != null ? esc(it.drowning_count) : ''}</td>
+            <td>${img}</td>
+            <td>${clipCell}</td>
+          </tr>`;
+        }).join('');
+        wrap.innerHTML = `<table><thead><tr><th>时间</th><th>类型</th><th>事件</th><th>溺水人数</th><th>截图</th><th>录像</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } else if (ev.source === 'csv' && ev.rows && ev.rows.length) {
+        const h = (ev.header || []).map(c => `<th>${esc(c)}</th>`).join('');
+        const body = ev.rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+        wrap.innerHTML = `<p class="muted">当前为 CSV 模式（尚无 JSONL 或旧数据）。新报警会写入 events.jsonl。</p><table><thead><tr>${h}</tr></thead><tbody>${body}</tbody></table>`;
+      } else {
+        wrap.innerHTML = '<p class="muted">暂无数据。请先运行桌面端监测并产生报警。</p>';
+      }
+    }
+
+    load();
+    setInterval(load, 15000);
+  </script>
+</body>
+</html>

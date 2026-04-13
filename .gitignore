@@ -1,0 +1,78 @@
+# Python虚拟环境
+venv/
+env/
+ENV/
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 测试和缓存
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# 本地配置（含 API Key）
+config/settings.json
+*.env
+.env.local
+
+# 日志文件（可选，如果你想保留示例日志可以注释掉）
+logs/
+*.log
+
+# 模型权重文件（太大，不建议上传）
+weights/*.pth
+weights/*.pt
+*.pth
+*.pt
+yolov8*.pt
+
+# 视频和图像数据（太大）
+data/
+data_cls/
+*.avi
+*.mp4
+*.mov
+*.mkv
+
+# IDE配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 临时文件
+*.tmp
+*.temp
+*.bak
+
+# 毕业论文文档（可选）
+*.doc
+*.docx
+毕业论文*.md
+
+# 其他大文件
+*.zip
+*.tar.gz
+*.rar
+
+# 意外生成的torch相关文件
+_torch_shadow_removed_use_pip_torch/
+
+# 其他不应该上传的文件
+*.spec
+build/
+dist/

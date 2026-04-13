@@ -1,0 +1,23 @@
+{
+  "_comment": "复制本文件为 config/settings.json 后填写。不要提交含真实密钥的 settings.json。",
+  "classifier": {
+    "path": "weights/classifier_best.pth",
+    "comment": "训练完成后将权重放于此路径；命令行 --classifier 可覆盖"
+  },
+  "deepseek": {
+    "api_key": "",
+    "api_base": "https://api.deepseek.com",
+    "model": "deepseek-chat",
+    "comment": "OpenAI 兼容接口；api_key 留空则桌面内「AI 简报」不可用"
+  },
+  "logs": {
+    "output_dir": "logs",
+    "comment": "events.csv / events.jsonl / screenshots / clips 根目录，相对项目根"
+  },
+  "dingtalk": {
+    "enabled": false,
+    "webhook": "",
+    "secret": "",
+    "comment": "群自定义机器人 Webhook 全地址；若开启加签则填写 secret（SEC 开头）。不要提交含真实密钥的 settings.json"
+  }
+}
