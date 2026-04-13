@@ -891,7 +891,35 @@ class MainWindow(QMainWindow):
         dlg = QDialog(self)
         dlg.setWindowTitle("AI 简报")
         dlg.setMinimumSize(520, 420)
+        # 设置对话框样式，确保文字可见
+        dlg.setStyleSheet("""
+            QDialog {
+                background-color: #1C1C1E;
+            }
+            QTextEdit {
+                background-color: #2C2C2E;
+                color: #F5F5F7;
+                border: 1px solid #3A3A3C;
+                border-radius: 8px;
+                padding: 12px;
+                font-size: 14px;
+                line-height: 1.6;
+            }
+            QPushButton {
+                background-color: #0A84FF;
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 20px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #0070E0;
+            }
+        """)
         lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(16, 16, 16, 16)
+        lay.setSpacing(12)
         te = QTextEdit()
         te.setReadOnly(True)
         te.setPlainText(text)
